@@ -1,7 +1,4 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy Node.js app to Azure Web App - immensebrains
+name: Build and Deploy Next.js App to Azure Web App - immensebrains
 
 on:
   push:
@@ -12,61 +9,55 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read #This is required for actions/checkout
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-      - name: Set up Node.js version
+      - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '22.x'
+          node-version: '18.x'
 
-      - name: npm install, build, and test
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the app
+        run: npm run build
+
+      - name: Create deployment package
         run: |
-          npm install -force
-          npm run build --if-present
-          npm run test --if-present
+          mkdir deploy
+          cp -r .next public package.json package-lock.json deploy/
+          cd deploy && zip -r ../release.zip .
 
-      - name: Zip artifact for deployment
-        run: zip release.zip ./* -r
-
-      - name: Upload artifact for deployment job
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: node-app
+          name: release
           path: release.zip
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
-
     steps:
-      - name: Download artifact from build job
+      - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: node-app
+          name: release
 
-      - name: Unzip artifact for deployment
+      - name: Unzip release
         run: unzip release.zip
-      
-      - name: Login to Azure
+
+      - name: Azure Login
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_7A48C11708BC4E239C83126682C46B34 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_CA6DEA92CE6946EAB2B28E8C8203CD0F }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_2499B08222764F14A0B330A38F70BD2A }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'immensebrains'
           slot-name: 'Production'
           package: .
-          
